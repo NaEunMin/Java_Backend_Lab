@@ -1,6 +1,6 @@
 package com.api.spring.di;
 
-import com.api.spring.di.ProductService;
+import com.api.spring.di.service.ProductService;
 import com.api.spring.di.config.AmbiguousConfig;
 import com.api.spring.di.config.PrimaryConfig;
 import com.api.spring.di.config.QualifierConfig;

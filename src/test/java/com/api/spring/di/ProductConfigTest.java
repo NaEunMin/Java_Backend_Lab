@@ -1,6 +1,6 @@
 package com.api.spring.di;
 
-import com.api.spring.di.ProductService;
+import com.api.spring.di.service.ProductService;
 import com.api.spring.di.config.ProductConfig;
 import com.api.spring.di.entity.Product;
 import com.api.spring.di.exception.ProductNotFoundException;
@@ -26,7 +26,7 @@ public class ProductConfigTest {
 
     @AfterEach
     void tearDown() {
-        if(context != null) {
+        if (context != null) {
             context.close();
         }
     }
@@ -41,7 +41,7 @@ public class ProductConfigTest {
     }
 
     @Test
-    public void 같은_컨테이너에서_서비스를_조회하면_같은_객체이다(){
+    public void 같은_컨테이너에서_서비스를_조회하면_같은_객체이다() {
         ProductService resultService = context.getBean(ProductService.class);
         ProductRepository resultRepository = context.getBean(ProductRepository.class);
         assertSame(productService, resultService);
@@ -50,18 +50,18 @@ public class ProductConfigTest {
 
     @Test
     public void 다른_컨테이너에서_만든_메모리_저장소는_공유되지_않는다() {
-        AnnotationConfigApplicationContext stubContext = new AnnotationConfigApplicationContext(ProductConfig.class);
-        ProductService stubService = stubContext.getBean(ProductService.class);
+        try (AnnotationConfigApplicationContext stubContext = new AnnotationConfigApplicationContext(ProductConfig.class)) {
+            ProductService stubService = stubContext.getBean(ProductService.class);
 
-        Product product = new Product(1L, "키보드", 1000);
-        productRepository.save(product);
+            Product product = new Product(1L, "키보드", 1000);
+            productRepository.save(product);
 
-        Product result = productService.getProduct(1L);
-        assertSame(product, result);
+            Product result = productService.getProduct(1L);
+            assertSame(product, result);
 
-        assertThrows(ProductNotFoundException.class, () ->
-                stubService.getProduct(1L));
+            assertThrows(ProductNotFoundException.class, () ->
+                    stubService.getProduct(1L));
+        }
 
-        stubContext.close();
     }
 }

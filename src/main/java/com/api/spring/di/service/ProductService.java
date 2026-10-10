@@ -1,4 +1,4 @@
-package com.api.spring.di;
+package com.api.spring.di.service;
 
 import com.api.spring.di.entity.Product;
 import com.api.spring.di.exception.ProductNotFoundException;

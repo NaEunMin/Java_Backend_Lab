@@ -1,6 +1,6 @@
 package com.api.spring.di.config;
 
-import com.api.spring.di.ProductService;
+import com.api.spring.di.service.ProductService;
 import com.api.spring.di.repository.InMemoryProductRepository;
 import com.api.spring.di.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Qualifier;

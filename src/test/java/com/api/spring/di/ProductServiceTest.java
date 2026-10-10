@@ -1,7 +1,7 @@
 package com.api.spring.di;
 
 
-import com.api.spring.di.ProductService;
+import com.api.spring.di.service.ProductService;
 import com.api.spring.di.entity.Product;
 import com.api.spring.di.exception.ProductNotFoundException;
 import com.api.spring.di.repository.InMemoryProductRepository;
