@@ -3,6 +3,7 @@ package com.api.springboot.service;
 import com.api.spring.di.entity.Product;
 import com.api.spring.di.repository.ProductRepository;
 import com.api.springboot.BackendStudyApplication;
+import com.api.springboot.exception.ProductProcessingException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,5 +92,38 @@ public class ProductBatchServiceIntegrationTest {
         assertEquals(200L, before_second_result.get().getId());
         assertEquals("mouse", before_second_result.get().getName());
         assertEquals(2000, before_second_result.get().getPrice());
+    }
+
+    @Test
+    public void 저장_후_런타임예외를_발생시켜_롤백한다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        assertThrows(IllegalStateException.class, () ->
+                productBatchService.saveThenFailWithRuntimeException(product));
+
+        Optional<Product> result = productRepository.findById(100L);
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void 저장_후_체크예외를_발생시켜_롤백하지_않는다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        assertThrows(ProductProcessingException.class, () ->
+                productBatchService.saveThenFailWithCheckedException(product));
+
+        Optional<Product> result = productRepository.findById(100L);
+        assertTrue(result.isPresent());
+        assertEquals(100L, result.get().getId());
+        assertEquals("keyboard", result.get().getName());
+        assertEquals(1000, result.get().getPrice());
+    }
+
+    @Test
+    public void 저장_후_체크예외를_발생시키고_롤백예외로_지정하여_롤백한다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        assertThrows(ProductProcessingException.class, () ->
+                productBatchService.saveThenFailWithCheckedExceptionAndRollback(product));
+
+        Optional<Product> result = productRepository.findById(100L);
+        assertFalse(result.isPresent());
     }
 }
