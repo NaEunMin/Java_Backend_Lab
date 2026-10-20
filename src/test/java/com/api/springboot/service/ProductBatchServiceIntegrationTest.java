@@ -126,4 +126,28 @@ public class ProductBatchServiceIntegrationTest {
         Optional<Product> result = productRepository.findById(100L);
         assertFalse(result.isPresent());
     }
+
+    @Test
+    public void 서비스_안에서_예외를_처리하면_롤백되지_않고_커밋된다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        boolean success = productBatchService.saveAndCatchRuntimeException(product);
+
+        Optional<Product> result = productRepository.findById(100L);
+
+        assertFalse(success);
+        assertTrue(result.isPresent());
+        assertEquals(100L, result.get().getId());
+        assertEquals("keyboard", result.get().getName());
+        assertEquals(1000, result.get().getPrice());
+    }
+
+    @Test
+    public void 서비스_안에서_예외를_잡고_다시_전파하면_롤백된다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        assertThrows(IllegalStateException.class, () ->
+                productBatchService.saveAndRethrowRuntimeException(product));
+
+        Optional<Product> result = productRepository.findById(100L);
+        assertFalse(result.isPresent());
+    }
 }

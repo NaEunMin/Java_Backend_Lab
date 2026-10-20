@@ -46,4 +46,26 @@ public class ProductBatchService {
         productRepository.save(product);
         throw new ProductProcessingException("");
     }
+
+    @Transactional
+    public boolean saveAndCatchRuntimeException(Product product) {
+        //예외를 잡은 뒤 false 반환 -> 서비스 밖으로 예외를 전파하지 않음 -> 체크 예외를 Spring의 트랙잭션 프록시가 받지 못하므로 롤백 X
+        try {
+            productRepository.save(product);
+            throw new IllegalStateException("후속 처리 실패");
+        } catch (IllegalStateException e) {
+            return false;
+        }
+    }
+
+    @Transactional
+    public void saveAndRethrowRuntimeException(Product product) {
+        //예외를 잡은 뒤 예외를 다시 던지기 -> 서비스 밖으로 예외 전파 -> 체크 예외를 Spring의 트랜잭션 프록시가 받아서 롤백 O
+        try {
+            productRepository.save(product);
+            throw new IllegalStateException("후속 처리 실패");
+        } catch (IllegalStateException e) {
+            throw e;
+        }
+    }
 }
