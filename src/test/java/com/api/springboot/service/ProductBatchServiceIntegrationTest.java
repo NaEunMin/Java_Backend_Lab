@@ -150,4 +150,27 @@ public class ProductBatchServiceIntegrationTest {
         Optional<Product> result = productRepository.findById(100L);
         assertFalse(result.isPresent());
     }
+
+    @Test
+    public void 트랜잭션_없는_바깥_메서드를_호출한다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        assertThrows(IllegalStateException.class, () ->
+                productBatchService.callInternallyWithoutTransaction(product));
+
+        Optional<Product> result = productRepository.findById(100L);
+        assertTrue(result.isPresent());
+        assertEquals(100L, result.get().getId());
+        assertEquals("keyboard", result.get().getName());
+        assertEquals(1000, result.get().getPrice());
+    }
+
+    @Test
+    public void 트랜잭션_있는_바깥_메서드를_호출한다() {
+        Product product = new Product(100L, "keyboard", 1000);
+        assertThrows(IllegalStateException.class, () ->
+                productBatchService.callInternallyWithTransaction(product));
+
+        Optional<Product> result = productRepository.findById(100L);
+        assertFalse(result.isPresent());
+    }
 }
