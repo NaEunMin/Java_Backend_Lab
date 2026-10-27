@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 import java.util.Optional;
 
@@ -69,5 +70,42 @@ public class ProductPropagationIntegrationTest {
 
         assertFalse(result_first.isPresent());
         assertFalse(result_second.isPresent());
+    }
+
+    @Test
+    public void 저장_중_안쪽_메서드에서_예외가_발생하여_rollbackonly가_설정되어_롤백된다() {
+        Product first = new Product(100L, "keyboard", 1000);
+        Product second = new Product(200L, "mouse", 2000);
+
+        assertThrows(UnexpectedRollbackException.class, ()->
+                productPropagationService.saveTwoAndCatchInnerFailure(first, second));
+
+        Optional<Product> result_first = productRepository.findById(100L);
+        Optional<Product> result_second = productRepository.findById(200L);
+
+        assertFalse(result_first.isPresent());
+        assertFalse(result_second.isPresent());
+    }
+
+    @Test
+    public void 두_상품_저장_후_바깥_메서드에서_예외_발생_후_false를_반환하여_커밋된다() {
+        Product first = new Product(100L, "keyboard", 1000);
+        Product second = new Product(200L, "mouse", 2000);
+
+        productPropagationService.saveTwoAndCatchLocalFailure(first, second);
+
+        Optional<Product> result_first = productRepository.findById(100L);
+        Optional<Product> result_second = productRepository.findById(200L);
+
+        assertTrue(result_first.isPresent());
+        assertTrue(result_second.isPresent());
+
+        assertEquals(100L, result_first.get().getId());
+        assertEquals("keyboard", result_first.get().getName());
+        assertEquals(1000, result_first.get().getPrice());
+
+        assertEquals(200L, result_second.get().getId());
+        assertEquals("mouse", result_second.get().getName());
+        assertEquals(2000, result_second.get().getPrice());
     }
 }
