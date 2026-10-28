@@ -23,4 +23,15 @@ public class ProductSaveService {
         productRepository.save(product);
         throw new IllegalStateException();
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveInNewTransaction(Product product) {
+        productRepository.save(product);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveThenFailInNewTransaction(Product product) {
+        productRepository.save(product);
+        throw new IllegalStateException();
+    }
 }

@@ -77,7 +77,7 @@ public class ProductPropagationIntegrationTest {
         Product first = new Product(100L, "keyboard", 1000);
         Product second = new Product(200L, "mouse", 2000);
 
-        assertThrows(UnexpectedRollbackException.class, ()->
+        assertThrows(UnexpectedRollbackException.class, () ->
                 productPropagationService.saveTwoAndCatchInnerFailure(first, second));
 
         Optional<Product> result_first = productRepository.findById(100L);
@@ -107,5 +107,59 @@ public class ProductPropagationIntegrationTest {
         assertEquals(200L, result_second.get().getId());
         assertEquals("mouse", result_second.get().getName());
         assertEquals(2000, result_second.get().getPrice());
+    }
+
+    @Test
+    public void 바깥_트랜잭션은_롤백된다() {
+        Product first = new Product(100L, "keyboard", 1000);
+        Product second = new Product(200L, "mouse", 2000);
+
+        assertThrows(IllegalStateException.class, () ->
+                productPropagationService.saveWithNewTransactionThenFail(first, second));
+
+        Optional<Product> result_first = productRepository.findById(100L);
+        Optional<Product> result_second = productRepository.findById(200L);
+
+        assertFalse(result_first.isPresent());
+        assertTrue(result_second.isPresent());
+
+        assertEquals(200L, result_second.get().getId());
+        assertEquals("mouse", result_second.get().getName());
+        assertEquals(2000, result_second.get().getPrice());
+    }
+
+    @Test
+    public void 안쪽_트랜잭션은_롤백된다() {
+        Product first = new Product(100L, "keyboard", 1000);
+        Product second = new Product(200L, "mouse", 2000);
+
+        boolean success = productPropagationService.saveAndCatchNewTransactionFailure(first, second);
+
+        assertFalse(success);
+
+        Optional<Product> result_first = productRepository.findById(100L);
+        Optional<Product> result_second = productRepository.findById(200L);
+
+        assertTrue(result_first.isPresent());
+        assertFalse(result_second.isPresent());
+
+        assertEquals(100L, result_first.get().getId());
+        assertEquals("keyboard", result_first.get().getName());
+        assertEquals(1000, result_first.get().getPrice());
+    }
+
+    @Test
+    public void 두_트랜잭션_모두_롤백된다() {
+        Product first = new Product(100L, "keyboard", 1000);
+        Product second = new Product(200L, "mouse", 2000);
+
+        assertThrows(IllegalStateException.class, () ->
+                productPropagationService.saveWithNewTransactionFailure(first, second));
+
+        Optional<Product> result_first = productRepository.findById(100L);
+        Optional<Product> result_second = productRepository.findById(200L);
+
+        assertFalse(result_first.isPresent());
+        assertFalse(result_second.isPresent());
     }
 }

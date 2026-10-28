@@ -44,9 +44,9 @@ public class ProductPropagationService {
             따라서 외부 호출자는 false가 아니라 UnexpectedRollbackException을 받는다.
          */
         productRepository.save(first);
-        try{
+        try {
             productSaveService.saveThenFail(second);
-        } catch (IllegalStateException e){
+        } catch (IllegalStateException e) {
             return false;
         }
         return true;
@@ -64,9 +64,42 @@ public class ProductPropagationService {
         try {
             productSaveService.save(second);
             throw new IllegalStateException();
-        } catch (IllegalStateException e){
+        } catch (IllegalStateException e) {
             return false;
         }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void saveWithNewTransactionThenFail(Product first, Product second) {
+        /*
+            안쪽 성공 후 바깥 트랜잭션에서 실패
+         */
+        productRepository.save(first);
+        productSaveService.saveInNewTransaction(second);
+        throw new IllegalStateException();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean saveAndCatchNewTransactionFailure(Product first, Product second) {
+        /*
+            안쪽 실패를 바깥에서 처리
+         */
+        productRepository.save(first);
+        try {
+            productSaveService.saveThenFailInNewTransaction(second);
+        } catch (IllegalStateException e) {
+            return false;
+        }
+        return true;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void saveWithNewTransactionFailure(Product first, Product second) {
+        /*
+            안쪽 실패를 그대로 전파
+         */
+        productRepository.save(first);
+        productSaveService.saveThenFailInNewTransaction(second);
     }
 
 }
