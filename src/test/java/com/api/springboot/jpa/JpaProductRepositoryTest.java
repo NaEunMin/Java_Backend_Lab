@@ -1,16 +1,19 @@
 package com.api.springboot.jpa;
 
-import com.api.spring.di.exception.ProductNotFoundException;
 import com.api.springboot.BackendStudyApplication;
 import com.api.springboot.entity.ProductEntity;
 import com.api.springboot.repository.JpaProductRepository;
 import com.api.springboot.service.JpaProductPriceService;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,6 +30,21 @@ public class JpaProductRepositoryTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void setUp() {
+        jdbcTemplate.update("""
+                insert into products (id, name, price)
+                values (50, 'speaker',  4000),
+                       (40, 'mouse',    2000),
+                       (20, 'keyboard', 2000),
+                       (10, 'cable',    1999),
+                       (60, 'adapter',  4001)
+                """);
+    }
 
     @Test
     public void 신규_상품을_저장하고_조회한다() {
@@ -69,5 +87,66 @@ public class JpaProductRepositoryTest {
         assertEquals(100L, result.getId());
         assertEquals("keyboard", result.getName());
         assertEquals(4000, result.getPrice());
+    }
+
+    @Test
+    public void persist는_전달한_객체_자체를_관리한다() {
+        ProductEntity original = new ProductEntity(100L, "keyboard", 1000);
+        entityManager.persist(original);
+        assertTrue(entityManager.contains(original));
+
+        original.changePrice(4000);
+        entityManager.flush();
+        entityManager.clear();
+        ProductEntity result = jpaProductRepository.findById(100L).orElse(null);
+
+        assertNotNull(result);
+        assertEquals(4000, result.getPrice());
+    }
+
+    @Test
+    public void 수동_ID_상품을_save하면_반환된_객체의_변경만_반영된다() {
+        ProductEntity original = new ProductEntity(100L, "keyboard", 3000);
+        ProductEntity saved = jpaProductRepository.save(original);
+
+        assertNotSame(original, saved);
+        assertFalse(entityManager.contains(original));
+        assertTrue(entityManager.contains(saved));
+
+        original.changePrice(9000);
+        assertEquals(3000, saved.getPrice());
+
+        saved.changePrice(4000);
+        entityManager.flush();
+        entityManager.clear();
+        ProductEntity result = jpaProductRepository.findById(100L).orElse(null);
+        assertNotNull(result);
+        assertEquals(4000, result.getPrice());
+    }
+
+    @Test
+    public void 가격_범위에_포함된_상품을_가격순으로_조회한다() {
+        List<ProductEntity> queryMethodProducts = jpaProductRepository.findByPriceBetweenOrderByPriceAscIdAsc(2000, 4000);
+        List<ProductEntity> jpqlProducts = jpaProductRepository.findInPriceRange(2000, 4000);
+
+        List<Long> queryMethodProductsIds = queryMethodProducts.stream()
+                .map(ProductEntity::getId)
+                .toList();
+
+        List<Long> jpqlProductsIds = jpqlProducts.stream()
+                .map(ProductEntity::getId)
+                .toList();
+
+        assertEquals(List.of(20L, 40L, 50L), queryMethodProductsIds);
+        assertEquals(List.of(20L, 40L, 50L), jpqlProductsIds);
+    }
+
+    @Test
+    public void 가격_범위에_해당하는_상품이_없으면_빈_리스트를_반환한다() {
+        List<ProductEntity> queryMethodProducts = jpaProductRepository.findByPriceBetweenOrderByPriceAscIdAsc(5000, 6000);
+        List<ProductEntity> jpqlProducts = jpaProductRepository.findInPriceRange(5000, 6000);
+
+        assertTrue(queryMethodProducts.isEmpty());
+        assertTrue(jpqlProducts.isEmpty());
     }
 }
