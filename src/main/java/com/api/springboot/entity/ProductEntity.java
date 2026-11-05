@@ -14,6 +14,10 @@ public class ProductEntity {
     @Column(nullable = false)
     private int price;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private CategoryEntity category;
+
     protected ProductEntity() {
     }
 
@@ -34,6 +38,24 @@ public class ProductEntity {
         this.price = price;
     }
 
+    public ProductEntity(Long id, String name, int price, CategoryEntity category) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException("ID는 null이 아닌 양수여야 합니다.");
+        }
+
+        if (name == null || name.isBlank() || name.length() > 100) {
+            throw new IllegalArgumentException("name은 null이거나 비어있을 수 없고 100자 이하여야 합니다.");
+        }
+
+        if (price <= 0) {
+            throw new IllegalArgumentException("price는 양수여야 합니다.");
+        }
+        this.id = id;
+        this.name = name;
+        this.price = price;
+        this.category = category;
+    }
+
     public void changePrice(int newPrice) {
         if (newPrice <= 0) {
             throw new IllegalArgumentException("새로운 가격은 1 이상이어야 합니다.");
@@ -51,5 +73,9 @@ public class ProductEntity {
 
     public int getPrice() {
         return price;
+    }
+
+    public CategoryEntity getCategory() {
+        return category;
     }
 }

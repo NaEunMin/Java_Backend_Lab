@@ -1,14 +1,20 @@
 package com.api.springboot.jpa;
 
 import com.api.springboot.BackendStudyApplication;
+import com.api.springboot.entity.CategoryEntity;
 import com.api.springboot.entity.ProductEntity;
 import com.api.springboot.repository.JpaProductRepository;
 import com.api.springboot.service.JpaProductPriceService;
 import jakarta.persistence.EntityManager;
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
@@ -148,5 +154,69 @@ public class JpaProductRepositoryTest {
 
         assertTrue(queryMethodProducts.isEmpty());
         assertTrue(jpqlProducts.isEmpty());
+    }
+
+    @Test
+    public void 같은_가격의_상품도_ID순으로_페이지_경계를_넘는다() {
+        insertPagingProducts();
+        Sort sort = Sort.by(Sort.Order.asc("price"), Sort.Order.asc("id"));
+        Pageable pageable1 = PageRequest.of(0, 2, sort);
+
+        Page<ProductEntity> pagingProducts = jpaProductRepository.findByPriceBetween(2000, 4001, pageable1);
+        List<Long> pagingProductsIds1 = pagingProducts.map(ProductEntity::getId).getContent();
+        assertTrue(pagingProducts.hasNext());
+        assertEquals(List.of(20L, 40L), pagingProductsIds1);
+        assertEquals(5L, pagingProducts.getTotalElements());
+
+        Pageable pageable2 = PageRequest.of(1, 2, sort);
+
+        Page<ProductEntity> pagingProducts2 = jpaProductRepository.findByPriceBetween(2000, 4001, pageable2);
+        List<Long> pagingProductsIds2 = pagingProducts2.map(ProductEntity::getId).getContent();
+        assertTrue(pagingProducts2.hasNext());
+        assertEquals(List.of(55L, 50L), pagingProductsIds2);
+    }
+
+    @Test
+    public void 마지막_페이지는_한_건이지만_전체_검색_결과는_다섯_건이다() {
+        insertPagingProducts();
+        Sort sort = Sort.by(Sort.Order.asc("price"), Sort.Order.asc("id"));
+        Pageable pageable = PageRequest.of(2, 2, sort);
+
+        Page<ProductEntity> pagingProducts = jpaProductRepository.findByPriceBetween(2000, 4001, pageable);
+        assertFalse(pagingProducts.hasNext());
+        List<Long> pagingProductsIds = pagingProducts.map(ProductEntity::getId).getContent();
+
+        assertEquals(List.of(60L), pagingProductsIds);
+        assertEquals(1, pagingProducts.getNumberOfElements());
+        assertEquals(5, pagingProducts.getTotalElements());
+        assertEquals(3, pagingProducts.getTotalPages());
+    }
+
+    @Test
+    public void 카테고리_이름을_처음_읽을때_지연로딩된다() {
+        CategoryEntity category = new CategoryEntity(1L, "주변기기");
+        entityManager.persist(category);
+
+        ProductEntity product = new ProductEntity(1L, "keyboard", 1000, category);
+        entityManager.persist(product);
+        entityManager.flush();
+        entityManager.clear();
+
+        ProductEntity findProduct = jpaProductRepository.findById(1L).orElse(null);
+        CategoryEntity loadedCategory = findProduct.getCategory();
+        assertNotNull(loadedCategory);
+        assertFalse(Hibernate.isInitialized(loadedCategory));
+
+        String categoryName = loadedCategory.getName(); // SELECT log 확인 -> SELECT가 출력됨
+        assertTrue(Hibernate.isInitialized(loadedCategory));
+
+        categoryName = loadedCategory.getName(); // SELECT log 확인 -> SELECT가 출력되지 않음
+    }
+
+    private void insertPagingProducts() {
+        jdbcTemplate.update("""
+                insert into products (id, name, price)
+                values (55, 'hub', 2000), (70, 'stand', 4002)
+                """);
     }
 }
