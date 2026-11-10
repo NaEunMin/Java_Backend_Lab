@@ -19,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -213,10 +214,135 @@ public class JpaProductRepositoryTest {
         categoryName = loadedCategory.getName(); // SELECT log 확인 -> SELECT가 출력되지 않음
     }
 
+    @Test
+    public void 카테고리의_상품_목록은_처음_조회할때_로딩된다() {
+        CategoryEntity peripherals = new CategoryEntity(1L, "주변기기");
+        CategoryEntity books = new CategoryEntity(2L, "도서");
+        entityManager.persist(peripherals);
+        entityManager.persist(books);
+
+        ProductEntity keyboard = new ProductEntity(101L, "키보드", 3000, peripherals);
+        ProductEntity mouse = new ProductEntity(102L, "마우스", 2000, peripherals);
+        ProductEntity javaBook = new ProductEntity(103L, "자바책", 5000, books);
+
+        peripherals.getProducts().add(keyboard);
+        peripherals.getProducts().add(mouse);
+        books.getProducts().add(javaBook);
+
+        entityManager.persist(keyboard);
+        entityManager.persist(mouse);
+        entityManager.persist(javaBook);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        CategoryEntity category = entityManager.find(CategoryEntity.class, 1L); // SELECT 쿼리 log 확인
+        List<ProductEntity> products = category.getProducts();
+        assertFalse(Hibernate.isInitialized(products));
+
+        // SELECT 쿼리 log 확인
+        List<Long> productIds = products.stream()
+                .map(ProductEntity::getId)
+                .toList();
+
+        assertTrue(Hibernate.isInitialized(products));
+        assertEquals(List.of(101L, 102L), productIds);
+
+        productIds = products.stream()
+                .map(ProductEntity::getId)
+                .toList(); // 재조회 시 SELECT 쿼리 log 안나옴
+    }
+
+    @Test
+    public void 카테고리별_상품_순회에서_N플러스1이_발생한다() {
+        saveCategoryAndProduct();
+
+        List<CategoryEntity> categories = entityManager.createQuery(
+                "select c from CategoryEntity c order by c.id",
+                CategoryEntity.class).getResultList();
+
+        assertEquals(3, categories.size());
+        assertEquals(List.of("주변기기", "도서", "식품"), categories.stream().map(CategoryEntity::getName).toList());
+
+        List<Long> peripheralsProductIds = categories.getFirst().getProducts().stream()
+                .map(ProductEntity::getId)
+                .sorted()
+                .toList();
+
+        assertEquals(List.of(101L, 102L), peripheralsProductIds);
+        assertTrue(Hibernate.isInitialized(categories.getFirst().getProducts()));
+        assertFalse(Hibernate.isInitialized(categories.get(1).getProducts()));
+        assertFalse(Hibernate.isInitialized(categories.get(2).getProducts()));
+
+        List<Long> booksProductIds = categories.get(1).getProducts().stream()
+                .map(ProductEntity::getId)
+                .sorted()
+                .toList();
+
+        assertEquals(List.of(103L), booksProductIds);
+        assertTrue(Hibernate.isInitialized(categories.get(1).getProducts()));
+        assertFalse(Hibernate.isInitialized(categories.get(2).getProducts()));
+
+        List<Long> foodsProductIds = categories.get(2).getProducts().stream()
+                .map(ProductEntity::getId)
+                .sorted()
+                .toList();
+
+        assertEquals(List.of(104L), foodsProductIds);
+        assertTrue(Hibernate.isInitialized(categories.get(2).getProducts()));
+
+        // 재조회를 하여 추가 쿼리가 발생하는지 확인
+        peripheralsProductIds = categories.getFirst().getProducts().stream()
+                .map(ProductEntity::getId)
+                .toList();
+
+        booksProductIds = categories.get(1).getProducts().stream()
+                .map(ProductEntity::getId)
+                .toList();
+
+        foodsProductIds = categories.get(2).getProducts().stream()
+                .map(ProductEntity::getId)
+                .toList();
+    }
+
     private void insertPagingProducts() {
         jdbcTemplate.update("""
                 insert into products (id, name, price)
                 values (55, 'hub', 2000), (70, 'stand', 4002)
                 """);
     }
+
+    private void saveCategoryAndProduct() {
+        CategoryEntity peripherals = new CategoryEntity(1L, "주변기기");
+        CategoryEntity books = new CategoryEntity(2L, "도서");
+        CategoryEntity foods = new CategoryEntity(3L, "식품");
+        entityManager.persist(peripherals);
+        entityManager.persist(books);
+        entityManager.persist(foods);
+
+        ProductEntity keyboard = new ProductEntity(101L, "keyboard", 1000, peripherals);
+        ProductEntity mouse = new ProductEntity(102L, "mouse", 2000, peripherals);
+
+        ProductEntity javaBook = new ProductEntity(103L, "java", 5000, books);
+
+        ProductEntity potato = new ProductEntity(104L, "potato", 3000, foods);
+
+        peripherals.getProducts().add(keyboard);
+        peripherals.getProducts().add(mouse);
+
+        books.getProducts().add(javaBook);
+
+        foods.getProducts().add(potato);
+
+        entityManager.persist(keyboard);
+        entityManager.persist(mouse);
+
+        entityManager.persist(javaBook);
+
+        entityManager.persist(potato);
+
+        entityManager.flush();
+        entityManager.clear();
+    }
+
 }

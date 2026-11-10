@@ -16,7 +16,6 @@ public class CategoryEntity {
     private String name;
 
     @OneToMany(mappedBy = "category")
-    @JoinColumn(name = "product_id")
     private List<ProductEntity> products = new ArrayList<>();
 
     public List<ProductEntity> getProducts() {
